@@ -3,17 +3,7 @@ import numpy as np
 import numpy.random as npr
 from scipy.stats import norm, expon
 import matplotlib.pyplot as plt
-import dask.bag as db
-
-'''
-Adds confidence interval for the parameters
-divided into 8 compartments (S,E,I,R for elderly (60+) and young ones (0-60))
-omega as attenuating contact factor (as social isolation)
-calculate daily demand for hospitalization (ward=H, icu = U)
-estimate cumulative daily death (M)
-plots as 5% quantile, median and 95% quantile
-based on bayes_seir code from original COVID-19 repo
-'''
+#import dask.bag as db
 
 DEFAULT_PARAMS = {
     'fator_subr': 1, #40.0,
@@ -30,17 +20,17 @@ DEFAULT_PARAMS = {
 ## CONFERIR SE SAO PRA LOGNORMAL
     # these are 95% confidence intervals
     # for a lognormal 
-    'gamma': (7.0, 12.0),# days, infectivity period, ECDC 
-    'alpha': (4.1, 7.0), # days, incubation period, LI
-    'R0_': (1.4, 3.9), # [], basic reproduction number, LI
-    'ward_internation_rate_e': (0.0610, 0.2089), # percentage, AJUSTE VERITY IBGE 
-    'icu_internation_rate_e': (0.0235, 0.0804), # percentage, AJUSTE VERITY IBGE x FATOR CDC USA U/(H+U)=1/3.6
-    'ward_internation_rate_y': (0.0124, 0.0426), # percentage, AJUSTE VERITY IBGE
-    'icu_internation_rate_y': (0.0031, 0.0107), # percentage, AJUSTE VERITY IBGE x FATOR CDC USA U/(H+U)=1/5
-    'ward_LOS': (4.0, 12.0), # ZHOU
-    'icu_LOS': (7.0, 14.0), # ZHOU
-    'mortality_rate_e': (0.019060, 0.066335), # percentage, AJUSTE VERITY IBGE
-    'mortality_rate_y': (0.000681, 0.002851) # percentage, AJUSTE VERITY IBGE
+    'gamma': (9.9999, 10.0001),#(7.0, 12.0),# days, infectivity period, ECDC 
+    'alpha': (5.1999, 5.2001),#(4.1, 7.0), # days, incubation period, LI
+    'R0_': (2.1999, 2.2001),#(1.4, 3.9), # [], basic reproduction number, LI
+    'ward_internation_rate_e': (0.1025, 0.1027),#(0.0610, 0.2089), # percentage, AJUSTE VERITY IBGE 
+    'icu_internation_rate_e': (0.0394, 0.0396),#(0.0235, 0.0804), # percentage, AJUSTE VERITY IBGE x FATOR CDC USA U/(H+U)=1/3.6
+    'ward_internation_rate_y': (0.0208, 0.0210),#(0.0124, 0.0426), # percentage, AJUSTE VERITY IBGE
+    'icu_internation_rate_y': (0.0051, 0.0053),#(0.0031, 0.0107), # percentage, AJUSTE VERITY IBGE x FATOR CDC USA U/(H+U)=1/5
+    'ward_LOS': (8.8999, 8.9001), #(4.0, 12.0), # ZHOU
+    'icu_LOS': (7.9999, 8.0001), #(7.0, 14.0), # ZHOU
+    'mortality_rate_e': (0.03494, 0.03496),#(0.019060, 0.066335), # percentage, AJUSTE VERITY IBGE
+    'mortality_rate_y': (0.00126, 0.00128)#(0.000681, 0.002851) # percentage, AJUSTE VERITY IBGE
 }
 
 
@@ -111,14 +101,14 @@ def run_SEIR_BAYES_model(
 		My0: 'init. deacesed population',
 		omega_e: 'attenuating contact factor',
 		omega_y: 'attenuating contact factor',
-		ward_internation_rate_e: 'ward_internation_rate_e',
-		icu_internation_rate_e: 'icu_internation_rate_e',
-		ward_internation_rate_y: 'ward_internation_rate_y',
-		icu_internation_rate_y: 'icu_internation_rate_y',
-		ward_LOS: 'ward_LOS',
-		icu_LOS: 'icu_LOS',
-		mortality_rate_e: 'mortality_rate_e',
-		mortality_rate_y: 'mortality_rate_y',
+		ward_internation_rate_e_params: 'ward_internation_rate_e',
+		ward_internation_rate_y_params: 'ward_internation_rate_y',
+		icu_internation_rate_e_params: 'icu_internation_rate_e',
+		icu_internation_rate_y_params: 'icu_internation_rate_y',
+		ward_LOS_params: 'ward_LOS',
+		icu_LOS_params: 'icu_LOS',
+		mortality_rate_e_params: 'mortality_rate_e',
+		mortality_rate_y_params: 'mortality_rate_y',
 		R0__params: 'repr. rate mean and std',
 		gamma_inv_params: 'removal rate mean and std',
 		alpha_inv_params: 'incubation rate mean and std',
@@ -148,21 +138,27 @@ def run_SEIR_BAYES_model(
 	alpha = 1/npr.lognormal(*map(np.log, alpha_inv_params), runs)
 	beta = R0_*gamma
 	
-	ward_internation_rate_e = npr.lognormal(*map(np.log, ward_internation_rate_e), runs)
-	icu_internation_rate_e = npr.lognormal(*map(np.log, icu_internation_rate_e), runs)
-	ward_internation_rate_y = npr.lognormal(*map(np.log, ward_internation_rate_y), runs)
-	icu_internation_rate_y = npr.lognormal(*map(np.log, icu_internation_rate_y), runs)
-	ward_LOS = npr.lognormal(*map(np.log, ward_LOS), runs)
-	icu_LOS = npr.lognormal(*map(np.log, icu_LOS), runs)
-	mortality_rate_e = npr.lognormal(*map(np.log, mortality_rate_e), runs)
-	mortality_rate_y = npr.lognormal(*map(np.log, mortality_rate_y), runs)
+	ward_internation_rate_e = npr.lognormal(*map(np.log, ward_internation_rate_e_params), runs)
+	icu_internation_rate_e = npr.lognormal(*map(np.log, icu_internation_rate_e_params), runs)
+	ward_internation_rate_y = npr.lognormal(*map(np.log, ward_internation_rate_y_params), runs)
+	icu_internation_rate_y = npr.lognormal(*map(np.log, icu_internation_rate_y_params), runs)
+	ward_LOS = npr.lognormal(*map(np.log, ward_LOS_params), runs)
+	icu_LOS = npr.lognormal(*map(np.log, icu_LOS_params), runs)
+	mortality_rate_e = npr.lognormal(*map(np.log, mortality_rate_e_params), runs)
+	mortality_rate_y = npr.lognormal(*map(np.log, mortality_rate_y_params), runs)
 	
-	## 1) ONDE DEFINIR AS CONDICOES INICIAIS DE H, U COM A MEDIA OU COM A DISTRIBUICAO DOS PARAMS ??????????????????????
+	## 1) ONDE DEFINIR AS CONDICOES INICIAIS DE H, U? FORA OU DENTRO DA ALEATORIEDADE
+	#	COM A MEDIA OU COM VALOR ALEATORIO ??????????????????????
 	## 2) CONTABILIZAR ALTAS COMO LOS NAS CONDICOES INICIAIS DE H, U ??????????????????????
 	He0 = Ie0 * ward_internation_rate_e
 	Hy0 = Iy0 * ward_internation_rate_y
 	Ue0 = Ie0 * icu_internation_rate_e
 	Uy0 = Iy0 * icu_internation_rate_y
+	
+	#He0 = Ie0 * 0.1026
+	#Hy0 = Iy0 * 0.0209
+	#Ue0 = Ie0 * 0.0395
+	#Uy0 = Iy0 * 0.0052
 	
 	He = np.zeros(size)
 	Ue = np.zeros(size)
@@ -176,12 +172,20 @@ def run_SEIR_BAYES_model(
 	
 	for t in t_space[1:]:
 
-
-
+		# DUVIDA - 
+		# FLUXOS entre COMPARTIMENTOS
+		# faz uma distribuicao binormal das variaveis escaladas e seleciona um valor aleatorio
+		
+		
+		# SAIDA de S e ENTRADA em E - SUscetiveis que viram Expostos
 		# beta * omega * (Ie+Iy)/N * Se
 		SEe = npr.binomial(Se[t-1, ].astype('int'), expon(scale=1/(beta * omega_e * (Ie[t-1, ]+Iy[t-1, ])/N)).cdf(1))
+		
+		# SAIDA de E e ENTRADA em I - Expostos que se Infectam
 		# E * alpha
 		EIe = npr.binomial(Ee[t-1, ].astype('int'), expon(scale=1/alpha).cdf(1))
+		
+		# SAIDA de I e ENTRADA em R - Infectados que se Recuperam
 		# I * gamma
 		IRe = npr.binomial(Ie[t-1, ].astype('int'), expon(scale=1/gamma).cdf(1))
 		
@@ -190,27 +194,34 @@ def run_SEIR_BAYES_model(
 		IRy = npr.binomial(Iy[t-1, ].astype('int'), expon(scale=1/gamma).cdf(1))
 		
 		
-		# TIRAR E e POR EI
+		# ENTRADA em H/U - Infectados/Expostos que demandam Hospitalizacao em leitos comuns/Uti
+		# TALVEZ TIRAR E e POR EI
 		# E * alpha * internation
 		EHe = npr.binomial(Ee[t-1, ].astype('int'), expon(scale=1/(alpha*ward_internation_rate_e)).cdf(1))
 		EUe = npr.binomial(Ee[t-1, ].astype('int'), expon(scale=1/(alpha*icu_internation_rate_e)).cdf(1))
 		
+		
+		# SAIDA de H/U - Hospitalizados em leitos comuns/Uti que recebem alta
 		## 3) PRECISA INVERTER LOS OU PODE USAR COMO NUMERADOR NO SCALE ??????????????????????
 		# H / LOS
 		HXe = npr.binomial(He[t-1, ].astype('int'), expon(scale=ward_LOS).cdf(1))
 		UXe = npr.binomial(Ue[t-1, ].astype('int'), expon(scale=icu_LOS).cdf(1))
 		
-		
+		# Entra no H e U - leitos necessarios (considera incubacao, por isso pode ser em funcao de E)
 		EHy = npr.binomial(Ey[t-1, ].astype('int'), expon(scale=1/(alpha*ward_internation_rate_y)).cdf(1))
 		EUy = npr.binomial(Ey[t-1, ].astype('int'), expon(scale=1/(alpha*icu_internation_rate_y)).cdf(1))
-		
+		# SAI DO H e U por ganhar alta
 		HXy = npr.binomial(Hy[t-1, ].astype('int'), expon(scale=ward_LOS).cdf(1))
 		UXy = npr.binomial(Uy[t-1, ].astype('int'), expon(scale=icu_LOS).cdf(1))
 		
+		
+		# ENTRADA em M - infectados que morrem
+		# Entra no M - obitos ocorridos
 		# I * gamma * mortality
 		IMe = npr.binomial(Ie[t-1, ].astype('int'), expon(scale=1/(gamma*mortality_rate_e)).cdf(1))
 		IMy = npr.binomial(Iy[t-1, ].astype('int'), expon(scale=1/(gamma*mortality_rate_y)).cdf(1))
 		
+		# FLUXOS = Entrada - Saida
 		dSe =  0 - SEe
 		dEe = SEe - EIe
 		dIe = EIe - IRe
@@ -450,7 +461,7 @@ if __name__ == '__main__':
 	fator_subr = DEFAULT_PARAMS['fator_subr']
 	omega_e = 1
 	omega_y = 1
-	t_max = 30*6
+	t_max = 1 * 365#30*6
 	runs = 1_000
 	
 	Se0, Ee0, Ie0, Re0, Sy0, Ey0, Iy0, Ry0, Me0, My0 = initial_conditions(
@@ -469,6 +480,26 @@ if __name__ == '__main__':
 									alpha_inv_params,
 									t_max, runs)
 	
+	mSe = np.quantile(Se,0.5,axis=1)#Se.mean(axis=1)
+	mEe = np.quantile(Ee,0.5,axis=1)#Ee.mean(axis=1)
+	mIe = np.quantile(Ie,0.5,axis=1)#Ie.mean(axis=1)
+	mRe = np.quantile(Re,0.5,axis=1)#Re.mean(axis=1)
+	mHe = np.quantile(He,0.5,axis=1)#He.mean(axis=1)
+	mUe = np.quantile(Ue,0.5,axis=1)#Ue.mean(axis=1)
+	mMe = np.quantile(Me,0.5,axis=1)#Me.mean(axis=1)
+	mSy = np.quantile(Sy,0.5,axis=1)#Sy.mean(axis=1)
+	mEy = np.quantile(Ey,0.5,axis=1)#Ey.mean(axis=1)
+	mIy = np.quantile(Iy,0.5,axis=1)#Iy.mean(axis=1)
+	mRy = np.quantile(Ry,0.5,axis=1)#Ry.mean(axis=1)
+	mHy = np.quantile(Hy,0.5,axis=1)#Hy.mean(axis=1)
+	mUy = np.quantile(Uy,0.5,axis=1)#Uy.mean(axis=1)
+	mMy = np.quantile(My,0.5,axis=1)#My.mean(axis=1)
+	
+	
+	results = pd.DataFrame({'Se': mSe, 'Sy': mSy, 'Ee': mEe, 'Ey': mEy, 'Ie': mIe, 'Iy': mIy, 'Re': mRe, 'Ry': mRy,
+							'He': mHe, 'Hy': mHy, 'Ue': mUe, 'Uy': mUy, 'Me': mMe, 'My': mMy})
+	
+	results.to_excel('lognormal4.xlsx')
 	
 	## NAO SEI PQ TEM ESSE COMPORTAMENTO DE ZERAR NO t = 50
 	## NAO MANJO DE MULTIPLOS PLOTS, EXPORTARIA CADA FIGURA UMA A UMA, POR ORA TEM 3
