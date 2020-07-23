@@ -213,17 +213,19 @@ def get_input_data():
 	"""
 		
 	
-	IC_analysis = 2  # 1 # 2 # 3 
+	IC_analysis = 1  # 1 # 2 # 3 
 	if(IC_analysis == 1):
-		 print('Confidence Interval Analysis (r0, gamma and alpha, lognormal distribution)')
+		print('Confidence Interval Analysis (r0, gamma and alpha, lognormal distribution)')
 	elif(IC_analysis == 2):
-		 print('Single Run Analysis')
+		print('Single Run Analysis')
 	elif(IC_analysis == 3):
-		 print('Sensitivity r0 Analysis')
+		print('Sensitivity r0 Analysis')
+	elif(IC_analysis == 4):
+		print('Rt analysis with confidence interval')
 	else:
 		sys.exit('ERROR: Not programmed such Analysis, please enter 1, 2 or 3')
 	
-	runs = 1_000 # 1_000 # number of runs for Confidence Interval analysis
+	runs = 1_00 # 1_000 # number of runs for Confidence Interval analysis
 	
 	dfMS, startdate, state_name, sub_report, r0_fit = [], [], [], [], []
 	
@@ -317,10 +319,8 @@ def get_input_data():
 		infection_to_death_rate = 1/infection_to_death_period
 		# beta = r0 * gamma
 		contamination_rate = basic_reproduction_number * infectivity_rate
-		
-	else: # r0 Sensitivity analysis
-		
-		# PARAMETERS ARE ARRAYS
+	elif IC_analysis == 3:
+			# PARAMETERS ARE ARRAYS
 		# Calculate array for r0 to a sensitivity analysis
 		R0_array = np.arange(*basic_reproduction_number, 0.1) # step 0.1 for r0
 		# alpha with length
@@ -331,7 +331,37 @@ def get_input_data():
 		infection_to_death_rate =  np.repeat(1 / infection_to_death_period, len(R0_array))
 		# beta = r0 * gamma
 		contamination_rate = R0_array * infectivity_rate 
-	contamination_rate = contamination_rate
+
+	else: # r0 Sensitivity analysis
+		# PARAMETERS ARE ARRAYS
+		
+		# 95% Confidence interval bounds for Covid parameters
+		# Incubation Period (in days)
+		incubation_period = (2.1, 7) # (4.1, 7.0)
+	
+		# Infectivity Period (in days)   # tempo_de_infecciosidade
+		#infectivity_period = (7.0, 12.0) #	3 days or 7 days
+		infectivity_period = (1, 6.7) #	3 days or 7 days
+		# Woelfel et al 22 (eCDC: 7-12 days @ 19/4/20, 
+		# https://www.ecdc.europa.eu/en/covid-19/questions-answers)
+		infection_to_death_period = (16.9,17.1)
+		
+		# Computes mean and std for a lognormal distribution
+		alpha_inv_params = make_lognormal_params_95_ci(*incubation_period)
+		gamma_inv_params = make_lognormal_params_95_ci(*infectivity_period)
+		delta_inv_params = make_lognormal_params_95_ci(*infection_to_death_period)
+		R0__params = make_lognormal_params_95_ci(*basic_reproduction_number)
+	
+		# samples for a lognormal distribution (Monte Carlo Method)
+		# alpha
+		incubation_rate = 1/npr.lognormal(*map(np.log, alpha_inv_params),runs)
+		# gamma
+		infectivity_rate = 1/npr.lognormal(*map(np.log, gamma_inv_params),runs)
+		# beta = r0 * gamma
+		contamination_rate = npr.lognormal(*map(np.log, R0__params), runs) * infectivity_rate
+		infection_to_death_rate = 1/npr.lognormal(*map(np.log, delta_inv_params),runs)
+
+		
 
 
 	covid_parameters = namedtuple('Covid_Parameters',
@@ -484,7 +514,7 @@ def get_input_data():
 		init_hospitalized_icu_young_excess = dUj0,   # initial iCU hospitalized demand excess young ones: 0-59 years
 		init_deceased_elderly = Mi0,        	# initial deceased population old ones: 60+ years
 		init_deceased_young = Mj0,           	# initial deceased population young ones: 0-59 years
-		t_max = 365, #	        # number of days to run
+		t_max = 100, #	        # number of days to run
 		# Brazilian Population
 		population = N,             
 		# Brazilian old people proportion (age: 60+), 2020 forecast

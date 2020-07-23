@@ -1,5 +1,5 @@
 from functions.data_functions import get_input_data
-from functions.model_functions import run_SEIR_ODE_model
+from functions.model_functions_3 import run_SEIR_ODE_model
 from functions.plot_functions import auxiliar_names, plots
 from functions.report_functions import generate_report
 from functions.utils import *
